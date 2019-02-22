@@ -1,3 +1,4 @@
+using NetCDF
 
 """Gradient function. 2nd-order centred."""
 function ∂x!(du::AbstractVector,u::AbstractVector)
@@ -143,12 +144,32 @@ function time_integration(Nt,u,η)
     u_out,η_out
 end
 
+function setup_output(filename, num_points)
+    # Define dimensions
+    timedim = NcDim("time", 0, unlimited=true)
+    idim    = NcDim("i", num_points)
 
+    # Define dimension variables
+    timevar = NcVar("time", timedim, t=Int32)
+    ivar    = NcVar("i",    idim,    t=Int32)
+
+    # Define multidimensional variables
+    u   = NcVar("u", [idim, timedim], t=Float32)
+    η   = NcVar("eta", [idim, timedim], t=Float32)
+
+    nc = NetCDF.create(filename, [u, η, timevar])
+end
+
+function output(ncfile, t_index, t, u, η)
+    println("Writing timestep $t_index")
+    NetCDF.putvar(ncfile, "u", u, start=[1,t_index], count=[-1,1])
+    NetCDF.putvar(ncfile, "eta", η, start=[1,t_index], count=[-1,1])
+end
 
 const g = 10.
 const H = 10.
 const N = 500
-const Nt = 1000
+const Nt = 2000
 const cfl = 0.9
 const rho = 1.
 const ν = 0.006
@@ -171,3 +192,7 @@ u_ini = fill(0.,N)
 
 u,η = time_integration(Nt,u_ini,η_ini)
 
+nc = setup_output("training_data.nc", N)
+for i = 1:Nt+1
+    output(nc, i, i, u[i,:], η[i,:])
+end
