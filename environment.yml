@@ -1,0 +1,6 @@
+name: swmone
+
+dependencies:
+- julia
+- python=3.6
+- matplotlib
