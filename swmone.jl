@@ -49,7 +49,28 @@ function rhs!(du,dη,u,η,h,u²,h_u,u²_h,dudx,p,dpdx,U,dUdx,t)
     @views dη[2:end-1] .= -dUdx
 end
 
+"""Computes the right-hand side of
+        ∂u/∂t = -g*∂η/∂x + ν∂²u/∂x² + Fx
+        ∂η/∂t = -∂(uh)/∂x. """
+function rhs_lin!(du,dη,u,η,h,u²,h_u,u²_h,dudx,p,dpdx,U,dUdx,t)
 
+    @views h .= η .+ H      # layer thickness
+
+    Ix!(h_u,h)
+    ∂x!(dudx,u)
+
+    # Bernoulli potential + stress "tensor"
+    @views p .= -g*η[2:end] .+ ν*dudx
+
+    # momentum equation
+    ∂x!(dpdx,p)
+    @views du[2:end-1] .= dpdx .+ F(x_u,t)./h_u[2:end]
+
+    # continuity equation
+    @views U .= H*u[1:end-1]         # volume flux
+    ∂x!(dUdx,U)
+    @views dη[2:end-1] .= -dUdx
+end
 
 """Add halo to the left and right of each subdomain for ghost point communication."""
 function add_halo(u::AbstractVector,η::AbstractVector)
@@ -119,7 +140,11 @@ function time_integration(Nt,u,η)
                 ghost_points!(u1,η1)
             end
 
-            rhs!(du,dη,u1,η1,h,u²,h_u,u²_h,dudx,p,dpdx,U,dUdx,t)
+            if size(ARGS)[1] > 0 && ARGS[1] == "lin"
+                rhs_lin!(du,dη,u1,η1,h,u²,h_u,u²_h,dudx,p,dpdx,U,dUdx,t)
+            else
+                rhs!(du,dη,u1,η1,h,u²,h_u,u²_h,dudx,p,dpdx,U,dUdx,t)
+            end
 
             if RKi < 4 # RHS update for the next RK-step
                 u1 .= u .+ RKβ[RKi]*dt*du
@@ -182,6 +207,12 @@ const dt = cfl * dx / cph
 const RKα = [1/6.,1/3.,1/3.,1/6.]
 const RKβ = [0.5,0.5,1.]
 
+if size(ARGS)[1] > 0 && ARGS[1] == "lin"
+    output_file = "training_data_lin.nc"
+else
+    output_file = "training_data.nc"
+end
+
 # grid
 const x_h = dx/2:dx:Lx
 const x_u = dx:dx:Lx        # no u-point at x=0 but at x=L (periodicity)
@@ -192,7 +223,7 @@ u_ini = fill(0.,N)
 
 u,η = time_integration(Nt,u_ini,η_ini)
 
-nc = setup_output("training_data.nc", N)
+nc = setup_output(output_file, N)
 for i = 1:Nt+1
     output(nc, i, i, u[i,:], η[i,:])
 end
