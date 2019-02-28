@@ -179,16 +179,17 @@ function setup_output(filename, num_points)
     ivar    = NcVar("i",    idim,    t=Int32)
 
     # Define multidimensional variables
-    u   = NcVar("u", [idim, timedim], t=Float32)
+    u   = NcVar("u",   [idim, timedim], t=Float32)
     η   = NcVar("eta", [idim, timedim], t=Float32)
 
-    nc = NetCDF.create(filename, [u, η, timevar])
+    nc = NetCDF.create(filename, [u, η, timevar], mode=NC_NETCDF4)
 end
 
 function output(ncfile, t_index, t, u, η)
     println("Writing timestep $t_index")
-    NetCDF.putvar(ncfile, "u", u, start=[1,t_index], count=[-1,1])
-    NetCDF.putvar(ncfile, "eta", η, start=[1,t_index], count=[-1,1])
+    NetCDF.putvar(ncfile, "u",    u,   start=[1,t_index], count=[-1,1])
+    NetCDF.putvar(ncfile, "eta",  η,   start=[1,t_index], count=[-1,1])
+    NetCDF.putvar(ncfile, "time", [t], start=[t_index])
 end
 
 const g = 10.
