@@ -4,3 +4,6 @@ dependencies:
 - julia
 - python=3.6
 - matplotlib
+- iris
+- keras
+- seaborn
